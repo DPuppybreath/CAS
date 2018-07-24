@@ -5,7 +5,7 @@
 # by Chuck Wernicke on 7-24-2018 for General Bytes
 
 # init vars and const
-DL_IP="privateitc.com/public/"
+DL_IP="https://github.com/DPuppybreath/CAS/tree/master/Support/Scripts/"
 SCRIPT_CMD="/batm/download/"
 echo
 echo "Welcome to the GB scripted repair tool!"
@@ -35,12 +35,12 @@ SCRIPT_CMD=$SCRIPT_CMD$SCRIPT_CODE
 
 wget --quiet --tries=5 --output-document=$SCRIPT_CMD $DL_URL
 if [ $? -ne 0 ]; then
-		echo "Download failed: Error retrieving the GB script "$SCRIPT_CODE
-		echo Scripts expire, and may be removed from the server without warning.
-		echo Script names are case-sensitive.
-		echo Please verify that the code sent to you is EXACT!!
-		echo
-		exit 1
+	echo "Download failed: Error retrieving the GB script "$SCRIPT_CODE
+	echo Scripts expire, and may be removed from the server without warning.
+	echo Script names are case-sensitive.
+	echo Please verify that the code sent to you is EXACT!!
+	echo
+	exit 1
 fi
 
 chmod +x $SCRIPT_CMD
