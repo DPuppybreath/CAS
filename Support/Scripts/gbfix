@@ -17,30 +17,47 @@ if [[ $MUID != 0 ]]; then
 	exit 1
 fi
 
-# examine command line
+# examine the command line
 if [[ $# = 0 ]]; then 
 	read -p "Please enter the script code sent by the support team: " SCRIPT_CODE
+	echo
 else
 	SCRIPT_CODE=$1
 fi
 
+# the script must be assigned, or bail
 if [[ -z $SCRIPT_CODE ]]; then
 	echo "A script code from GB support is required to use this tool!"
 	exit 1
 fi
 
-# download specified script if available
-DL_URL="https://"$DL_IP"/"$SCRIPT_CODE
+# set our paths
+DL_URL=$DL_IP$SCRIPT_CODE
 SCRIPT_CMD=$SCRIPT_CMD$SCRIPT_CODE
 
+# overwrite an existing file, or exit
+if [[ -e "$SCRIPT_CMD" ]]; then
+	read -n 1 -p "The file already exists. Overwrite it? (Y/n): " YesNo
+	echo
+	if [ "$YesNo" != "Y" ]; then
+		rm -f $SCRIPT_CMD
+		echo $SCRIPT_CMD" deleted."
+	else
+		echo "Aborting download. The script file has been left intact at:"
+		echo $SCRIPT_CMD
+		exit 1
+	fi
+fi
+
+# download specified script if available
 wget --quiet --tries=5 --output-document=$SCRIPT_CMD $DL_URL
 if [ $? -ne 0 ]; then
-	echo "Download failed: Error retrieving the GB script "$SCRIPT_CODE
-	echo Scripts expire, and may be removed from the server without warning.
-	echo Script names are case-sensitive.
-	echo Please verify that the code sent to you is EXACT!!
-	echo
-	exit 1
+		echo "Download failed: Error retrieving the GB script "$SCRIPT_CODE
+		echo Scripts expire, and may be removed from the server without warning.
+		echo Script names are case-sensitive.
+		echo Please verify that the code sent to you is EXACT!!
+		echo
+		exit 1
 fi
 
 chmod +x $SCRIPT_CMD
