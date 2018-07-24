@@ -1,0 +1,4 @@
+#! /bin/bash
+# this script self-destructs the gbfix utility
+
+rm -f gbfix
