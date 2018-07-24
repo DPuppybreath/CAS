@@ -1,4 +1,8 @@
 #! /bin/bash
 # this script self-destructs the gbfix utility
 
-rm -f gbfix
+read -p "WARNING - you are about to remove the GB repair utility, proceed? (Y/n): " YesNo
+echo
+if [[ "$YesNo" = "Y" ]]; then
+  rm -f gbfix
+fi
