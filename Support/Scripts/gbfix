@@ -39,7 +39,7 @@ SCRIPT_CMD=$SCRIPT_CMD$SCRIPT_CODE
 if [[ -e "$SCRIPT_CMD" ]]; then
 	read -n 1 -p "The file already exists. Overwrite it? (Y/n): " YesNo
 	echo
-	if [ "$YesNo" != "Y" ]; then
+	if [ "$YesNo" = "Y" ]; then
 		rm -f $SCRIPT_CMD
 		echo $SCRIPT_CMD" deleted."
 	else
