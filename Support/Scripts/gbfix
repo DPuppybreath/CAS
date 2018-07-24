@@ -1,0 +1,88 @@
+#! /bin/bash
+
+# This script downloads repair scripts from General Bytes and by default runs the script
+# Written to eliminate command line errors and to automate critical data collection
+# by Chuck Wernicke on 7-24-2018 for General Bytes
+
+# init vars and const
+DL_IP="privateitc.com/public/"
+SCRIPT_CMD="/batm/download/"
+echo
+echo "Welcome to the GB scripted repair tool!"
+
+MUID=$( id -u )
+if [[ $MUID != 0 ]]; then
+	echo "This script needs to be run as sudo:"
+	echo "sudo gbfix"
+	exit 1
+fi
+
+# examine command line
+if [[ $# = 0 ]]; then 
+	read -p "Please enter the script code sent by the support team: " SCRIPT_CODE
+else
+	SCRIPT_CODE=$1
+fi
+
+if [[ -z $SCRIPT_CODE ]]; then
+	echo "A script code from GB support is required to use this tool!"
+	exit 1
+fi
+
+# download specified script if available
+DL_URL="https://"$DL_IP"/"$SCRIPT_CODE
+SCRIPT_CMD=$SCRIPT_CMD$SCRIPT_CODE
+
+wget --quiet --tries=5 --output-document=$SCRIPT_CMD $DL_URL
+if [ $? -ne 0 ]; then
+		echo "Download failed: Error retrieving the GB script "$SCRIPT_CODE
+		echo Scripts expire, and may be removed from the server without warning.
+		echo Script names are case-sensitive.
+		echo Please verify that the code sent to you is EXACT!!
+		echo
+		exit 1
+fi
+
+chmod +x $SCRIPT_CMD
+if [ $? -ne 0 ]; then
+	echo "Failure: Error setting executable flag on script "$SCRIPT_CODE
+	echo Has the repair script been deleted?
+	echo Please restart this script and try again.
+	exit 1
+fi
+echo "Script successfully downloaded, installed, and set as executable..."
+
+# optionally run the script
+read -n 1 -p "Run the script now? (Y/n): " YesNo
+echo
+echo
+if [ "$YesNo" != "n" ]; then
+	#execute the script
+	/bin/bash $SCRIPT_CMD;
+	if [ $? -ne 0 ]; then
+		echo "Failure: Error executing script "$SCRIPT_CODE
+		echo Has the repair script been deleted?
+		echo Please restart this script and try again.
+		exit 1
+	fi
+	echo
+	echo "FINISHED! Script executed successfully..."
+	
+	# offer to kill the script
+	read -n 1 -p "The script completed, would you like to delete it now? (Y/n)" YesNo
+	echo
+	if [ "$YesNo" != "n" ]; then
+		#delete the script
+		echo "Deleting: "$SCRIPT_CMD
+		rm -f $SCRIPT_CMD
+	fi
+else
+	echo "To run the script, type the following at anytime:"
+	echo "sudo "$SCRIPT_CMD
+	echo
+fi
+
+# cleanup
+
+echo Thank you for using General Bytes\' products!
+echo
