@@ -5,7 +5,7 @@
 # by Chuck Wernicke on 7-24-2018 for General Bytes
 
 # init vars and const
-DL_IP="https://github.com/DPuppybreath/CAS/tree/master/Support/Scripts/"
+DL_IP="https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/"
 SCRIPT_CMD="/batm/download/"
 echo
 echo "Welcome to the GB scripted repair tool!"
