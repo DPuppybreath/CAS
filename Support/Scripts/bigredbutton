@@ -5,4 +5,5 @@ read -n 1 -p "WARNING - you are about to remove the GB repair utility, proceed? 
 echo
 if [[ "$YesNo" = "Y" ]]; then
   rm -f gbfix
+  echo "The GB repair script utility has been successfully deleted."
 fi
