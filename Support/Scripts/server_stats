@@ -1,0 +1,71 @@
+#! /bin/bash
+
+CFG_FILE="/batm/batm-manage"
+WHO=$( cat /batm/config/license_number | cut -b -5 )
+TIMESTAMP=$( date +"%Y%m%d%H%M" )
+VERSION=$( cat /batm/config/version )
+fBase="_"$TIMESTAMP"_"$VERSION"_"$WHO"_serverstats."
+
+echo "We are about to collect critical support information about your server."
+echo "You will have an opportunity to view the information prior to submission."
+echo
+
+# extract this user's FTP creds from batm-manage
+FTP_USER=$( grep -m1 "ftp://support.generalbytes.com/" $CFG_FILE | tr -d '\t' | tr ' ' ':' | cut -d ':' -f12 )
+FTP_PW=$( grep -m1 "ftp://support.generalbytes.com/" $CFG_FILE | tr -d '\t' | tr ' ' ':' | cut -d ':' -f13 )
+FTP_CREDS=$FTP_USER":"$FTP_PW
+	
+echo "Please enter your ticket # (support conversation id)."
+echo "Your ticket # was given to you with instructions to use this tool. Without the correct # we will not receive your file."
+read -p "Support conversation id: " TICKET
+
+if [[ -n "$TICKET" ]]; then
+	echo "Thank you. This file will be sent to GB Support under ticket "$TICKET":"
+	echo 
+	
+	# tidy up the paths now that we have the ticket number
+	fBase="/tmp/"$TICKET$fBase
+	tmpFile=$fBase"txt"
+	ARCHIVE_NAME=$fBase"zip"
+	
+	# assemble the info
+	echo -e $tmpFile > $tmpFile
+	echo -e "\nCAS DATA:" >> $tmpFile
+	/batm/batm-manage info >> $tmpFile
+	echo -e "\nPUBLIC IP:" >> $tmpFile
+	hostname -I >> $tmpFile
+	echo -e "\nDISK STATS:" >> $tmpFile
+	df >> $tmpFile
+	echo -e "\nRAM STATS:" >> $tmpFile
+	free >> $tmpFile
+	echo -e "\nUPTIME:" >> $tmpFile
+	uptime >> $tmpFile
+	echo -e "\nPROCESSES:" >> $tmpFile
+	ps -aux >> $tmpFile
+	echo -e "\nIP TABLES:" >> $tmpFile
+	iptables -L >> $tmpFile
+	
+	# offer a private viewing
+	echo "The compiled information has been assembled and is in this file:"
+	echo $tmpFile
+	read -n 1 -p "It will be erased after the upload. Would you like to view it now? (Y/n): " YesNo
+	if [[ "$YesNo" = "Y" ]]; then
+		cat $tmpFile
+	fi
+	
+	# now pack it up and ship it off
+	echo "Compressing "$tmpFile
+	7z a $ARCHIVE_NAME $tmpFile
+	if [ -a $ARCHIVE_NAME ]; then
+		echo "Uploading..."
+		curl -T $ARCHIVE_NAME --ssl-reqd -1 -k -u $FTP_CREDS ftp://support.generalbytes.com/
+		echo "Removing archive $ARCHIVE_NAME."
+		rm $ARCHIVE_NAME
+		rm $tmpFile
+		echo "Done!"
+	else
+		echo "Compression failed...check your drive free space perhaps?"
+	fi
+else
+	echo "We cannot proceed without your ticket number."
+fi
