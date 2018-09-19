@@ -29,6 +29,7 @@ re='^[1-2]+$'
 if ! [[ $YesNo =~ $re ]]; then exit 13; fi
 if [[ $YesNo = 1 ]]; then API="coinbase.py"; fi
 if [[ $YesNo = 2 ]]; then API="kraken.py"; fi
+if [[ $YesNo = 3 ]]; then API="HitBTC.py"; fi
 
 if [[ -z "$API" ]]; then exit 86; fi
 APIFile=$SCRIPT_DIR$API
