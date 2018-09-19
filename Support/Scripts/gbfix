@@ -106,7 +106,7 @@ if [ "${YesNo,,}" = "y" ]; then
 	if [ "${YesNo,,}" = "y" ]; then
 		#delete the script
 		echo "Deleting: "$SCRIPT_CMD
-		#rm -f $SCRIPT_CMD
+		rm -f $SCRIPT_CMD
 	fi
 else
 	echo "To run the script, type the following at anytime:"
