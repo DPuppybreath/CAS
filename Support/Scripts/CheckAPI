@@ -1,0 +1,79 @@
+#! /bin/bash
+
+# This script was written 2018 by Chuck Wernicke for General Bytes to be used with the gbfix utility
+# It is designed to execute python scripts to test Exchange API parameters
+# ver 2018-09-19
+
+IsInstalled=$( python3 -V | grep "Python3" )
+if [[ -n "$IsInstalled" ]]; then
+	read -n 1 -p "Python 3 is required to proceed, but NOT installed. Would you like to install it now? [Y/n]" YesNo
+	if [[ "${YesNo,,}" = "n" ]]; then exit 3; fi
+	echo
+	# sudo apt update && apt -y install python3
+	if [[ $? -ne 0 ]]; then
+		echo "ERROR: Unable to install Python 3! We cannot proceed."
+		exit 3
+	fi
+fi
+
+DL_HEAD="https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Python/"
+
+# figure out which API we're testing
+echo "[1] Test Coinbase API"
+echo "[2] Test Kraken API"
+echo
+echo "[A] Abort, exit, flee!"
+read -p "Which API would you like to check? [#]: " YesNo
+re='^[1-2]+$'
+if ! [[ $YesNo =~ $re ]]; then exit 13; fi
+if [[ $YesNo = 1 ]]; then API="coinbase.py"; fi
+if [[ $YesNo = 2 ]]; then API="kraken.py"; fi
+
+if [[ -z "$API" ]]; then exit 86; fi
+APIFile=$SCRIPT_DIR$API
+DL_URI=$DL_HEAD$API
+
+clobber=true # overwrite by default
+if [[ -e $APIFile ]]; then
+	read -n 1 -p "The API tester already exists. Overwrite it with a new one? [Y/n]" YesNo
+	echo
+	if [[ "${YesNo,,}" = "n" ]]; then clobber=false; fi
+fi
+
+if [[ "$clobber" = true ]]; then # overwrite any file that may already exist
+	tmpFile=$( mktemp )
+	wget --quiet --tries=5 --output-document=$tmpFile $DL_URI
+	if [ $? -eq 0 ]; then
+		rm -f $APIFile
+		mv $tmpFile $APIFile
+	else # the file failed to download
+		echo -n "Uh oh! Download of "$API" failed..."
+		# a failed wget will leave an empty file behind
+		rm $tmpFile
+		if [[ -e $APIFile ]]; then # the old file still exists
+			echo "continuing on with existing "$API
+		else
+			echo " we cannot proceed."
+			exit 86
+		fi
+	fi
+fi
+
+ShowKeys=""
+echo "Please have your API Key & API Secret ready."
+echo "For security reasons, we recommend you hide them during entry, but it isn't required."
+echo "You may find it easier to see what you are typing without the keys hidden."
+read -n 1 -p "Do you wish to hide the keys during entry? [Y/n]" YesNo
+echo
+if [[ "${YesNo,,}" = "n" ]]; then ShowKeys="ShowKeys"; fi
+
+python3 $APIFile $ShowKeys
+
+# offer to kill the tester
+read -n 1 -p $API" completed, would you like to delete it now? (Y/n)" YesNo
+echo
+if [ "${YesNo,,}" = "y" ]; then
+	#delete the tester
+	echo "Deleting: "$APIFile
+	rm -f $APIFile
+fi
