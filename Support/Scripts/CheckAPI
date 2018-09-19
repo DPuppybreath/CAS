@@ -19,8 +19,9 @@ fi
 DL_HEAD="https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Python/"
 
 # figure out which API we're testing
-echo "[1] Test Coinbase API"
-echo "[2] Test Kraken API"
+echo "[1] Coinbase"
+echo "[2] Kraken"
+echo "[3] HitBTC"
 echo
 echo "[A] Abort, exit, flee!"
 read -p "Which API would you like to check? [#]: " YesNo
