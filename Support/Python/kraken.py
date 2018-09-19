@@ -168,16 +168,16 @@ print("You are about to test your Kraken API parameters...")
 try:	
 	
 	if ShowKeys:
-		API_KEY = input('Please enter your Kraken API Key:')
+		API_KEY = input('Please enter your Kraken API Key: ')
 	else:
-		API_KEY = getpass.getpass('Please enter your Kraken API Key:')
+		API_KEY = getpass.getpass('Please enter your Kraken API Key: ')
 	# API Key override can be entered here, or typed at the command line above
 	#API_KEY = ""
 
 	if ShowKeys:
-		API_KEY = input('Please enter your Kraken API Secret:')
+		API_SECRET = input('Please enter your Kraken API Secret: ')
 	else:
-		API_KEY = getpass.getpass('Please enter your Kraken API Secret:')
+		API_SECRET = getpass.getpass('Please enter your Kraken API Secret: ')
 	# API Secret override can be entered here, or typed at the command line above
 	#API_SECRET = ""
 
