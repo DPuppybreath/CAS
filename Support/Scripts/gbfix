@@ -2,11 +2,16 @@
 
 # This script downloads repair scripts from General Bytes and by default runs the script
 # Written to eliminate command line errors and to automate critical data collection
-# by Chuck Wernicke on 7-24-2018 for General Bytes
+# by Chuck Wernicke on 7-24-2018 for General Bytes exclusively on the Ubuntu 16.04 LTS environment
+# version 1.1
+# execution:
+# wget https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/gbfix
+# chmod +x gbfix
+# ./gbfix
 
 # init vars and const
-DL_IP="https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/"
-SCRIPT_CMD="/batm/download/"
+export SCRIPT_DIR="/batm/download/"
+DL_HEAD="https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/"
 echo
 echo "Welcome to the GB scripted repair tool!"
 
@@ -14,7 +19,7 @@ MUID=$( id -u )
 if [[ $MUID != 0 ]]; then
 	echo "This script needs to be run as sudo:"
 	echo "sudo gbfix"
-	exit 1
+	exit 3
 fi
 
 # examine the command line
@@ -28,24 +33,24 @@ fi
 # the script must be assigned, or bail
 if [[ -z $SCRIPT_CODE ]]; then
 	echo "A script code from GB support is required to use this tool!"
-	exit 1
+	exit 3
 fi
 
 # set our paths
-DL_URL=$DL_IP$SCRIPT_CODE
-SCRIPT_CMD=$SCRIPT_CMD$SCRIPT_CODE
+DL_URL=$DL_HEAD$SCRIPT_CODE
+SCRIPT_CMD=$SCRIPT_DIR$SCRIPT_CODE
 
 # overwrite an existing file, or exit
 if [[ -e "$SCRIPT_CMD" ]]; then
 	read -n 1 -p "The file already exists. Overwrite it? (Y/n): " YesNo
 	echo
-	if [ "$YesNo" = "Y" ]; then
+	if [ "${YesNo,,}" = "y" ]; then
 		rm -f $SCRIPT_CMD
 		echo $SCRIPT_CMD" deleted."
 	else
 		echo "Aborting download. The script file has been left intact at:"
 		echo $SCRIPT_CMD
-		exit 1
+		exit 13
 	fi
 fi
 
@@ -53,19 +58,19 @@ fi
 wget --quiet --tries=5 --output-document=$SCRIPT_CMD $DL_URL
 if [ $? -ne 0 ]; then
 		echo "Download failed: Error retrieving the GB script "$SCRIPT_CODE
-		echo Scripts expire, and may be removed from the server without warning.
-		echo Script names are case-sensitive.
-		echo Please verify that the code sent to you is EXACT!!
+		echo "Scripts expire, and may be removed from the server without warning."
+		echo "Script names are case-sensitive."
+		echo "Please verify that the code sent to you is EXACT!!"
 		echo
-		exit 1
+		exit 86
 fi
 
 chmod +x $SCRIPT_CMD
 if [ $? -ne 0 ]; then
 	echo "Failure: Error setting executable flag on script "$SCRIPT_CODE
-	echo Has the repair script been deleted?
-	echo Please restart this script and try again.
-	exit 1
+	if [[ ! -e $SCRIPT_CMD ]]; then echo "The repair script is missing!"; fi
+	echo "Please restart this script and try again."
+	exit 3
 fi
 echo "Script successfully downloaded, installed, and set as executable..."
 
@@ -73,25 +78,35 @@ echo "Script successfully downloaded, installed, and set as executable..."
 read -n 1 -p "Run the script now? (Y/n): " YesNo
 echo
 echo
-if [ "$YesNo" != "n" ]; then
+if [ "${YesNo,,}" = "y" ]; then
 	#execute the script
 	/bin/bash $SCRIPT_CMD;
-	if [ $? -ne 0 ]; then
-		echo "Failure: Error executing script "$SCRIPT_CODE
-		echo Has the repair script been deleted?
-		echo Please restart this script and try again.
+	ReturnCode=$?
+	echo
+	if [ $ReturnCode -eq 0 ]; then
+		echo "FINISHED! Script executed successfully..."
+	else
+		if [[ $ReturnCode -eq 86 ]]; then 
+			echo "Download error."
+		elif [[ $ReturnCode -eq 13 ]]; then 
+			echo "Script execution has been aborted at user request."
+		elif  [[ $ReturnCode -eq 3 ]]; then 
+			echo "Critical components missing."
+		else
+			echo "Unexpected failure executing script, code: "$SCRIPT_CODE; 
+			if [[ ! -e $SCRIPT_CMD ]]; then echo "The repair script is missing!"; fi
+		fi
+		echo "Please restart this and try again."
 		exit 1
 	fi
-	echo
-	echo "FINISHED! Script executed successfully..."
 	
 	# offer to kill the script
 	read -n 1 -p "The script completed, would you like to delete it now? (Y/n)" YesNo
 	echo
-	if [ "$YesNo" != "n" ]; then
+	if [ "${YesNo,,}" = "y" ]; then
 		#delete the script
 		echo "Deleting: "$SCRIPT_CMD
-		rm -f $SCRIPT_CMD
+		#rm -f $SCRIPT_CMD
 	fi
 else
 	echo "To run the script, type the following at anytime:"
@@ -101,5 +116,5 @@ fi
 
 # cleanup
 
-echo Thank you for using General Bytes\' products!
+echo "Thank you for using General Bytes products!"
 echo
