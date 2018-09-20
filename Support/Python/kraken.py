@@ -196,7 +196,9 @@ try:
 	print ("Your Kraken wallets & balances:")
 	for x in reply['result']:
 		if str(x)[0] == "X":
-			print(str(x)[1:] + ": " + str(reply['result'][x]))
+			print(" " + str(x)[1:] + ": " + str(reply['result'][x]))
+		elif str(x)[0] != "Z":
+			print(str(x) + ": " + str(reply['result'][x]))
 
 except KeyboardInterrupt:
 	print (" ABORTING!")
