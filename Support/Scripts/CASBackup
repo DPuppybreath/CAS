@@ -1,0 +1,114 @@
+#! /bin/bash
+# CASBackup enables cron automated backup jobs for GB CAS
+# written Oct 11, 2018-10-11 by Chuck Wernicke for General Bytes
+# Nov 30 2018: to ver 1.2 - implemented sed for log maintenance
+# Dec 05 2018: to ver 1.3 - installed batm-manage backup call
+# this cronjob must be executed as root!
+
+# vars
+maxSvcWait=11; # the maximum wait time (in seconds) before the services are nuked without apology
+LogFile="/var/log/batm/CASBackup.log";
+LogDepth=30; # the number of days' worth of backup logs to keep (0=no logging)
+LogPrefix=$( date -u +%s );
+BeginTime=$SECONDS
+
+LogIt() {
+	if [[ "$LogDepth" -gt 0 ]]; then 
+		echo $LogPrefix"="$1 >> $LogFile;
+	fi;
+}
+
+KillSVC() {
+	SVC=0;
+	if [[ -e "/var/run/batm/$1" ]]; then 
+		SVC=$( cat /var/run/batm/$1 );
+	else
+		echo "done."
+	fi
+	Waits=$(( maxSvcWait / 5 ))
+	while [[ "$SVC" -gt 0 ]]; do # it must be a PID
+		echo -n "."
+		sleep 5
+		IsRunning=$( ps --pid "$SVC" --no-headers )
+		if [[ -z $IsRunning ]]; then
+			SVC=0
+			echo "done."
+		else
+			(( Waits-- ))
+			if [[ "$Waits" -eq 0 ]]; then
+				kill $SVC # the service has been given 5+ seconds to terminate by now...
+				LogIt $1" pid:"$SVC" destroyed after "$maxSvcWait" second timeout..."
+				SVC=0 # setting this to zero exits the while..do loop
+				echo "KILLED."
+			fi
+		fi
+	done
+
+}
+
+MUID=$( id -u )
+if [[ $MUID != 0 ]]; then
+	echo "This script must be run as sudo!"
+	exit 3
+fi
+
+# verify a log exists - if used - and set permissions
+if [[ "$LogDepth" -gt 0 ]]; then
+	if [[ ! -e $LogFile ]]; then
+		touch $LogFile;
+		chown batm:batm $LogFile
+	fi
+fi
+
+# introduction & description
+echo "This script automates the CAS backup procedure."
+echo "Logging history: "$LogDepth" days at: "$LogFile
+LogIt "CAS archiving started...";
+
+# erase expired log entries
+if [[ "$LogDepth" -gt 0 ]]; then
+	ExpireDate=$( date -u -d "$LogDepth days ago" +%s);
+	while read LogEntry; do
+		EntryDate=$( echo $LogEntry | cut -f 1 -d '=' );
+		if [[ "$EntryDate" -lt "$ExpireDate" ]]; then
+			# increment the log line number - it is to be erased - sed uses "1" based ranges
+			sed -i '1d' $LogFile
+			echo "Deleting "$LogEntry
+		else
+			break;
+		fi
+	done < $LogFile	
+fi
+
+# stop all CAS services
+echo "Shutting down CAS services:";
+LogIt "Shutting down CAS"
+
+# this generic method will most likely succeed; but we're going to "trust yet verify"
+/batm/batm-manage stop all;
+
+# ADMIN ************************************************************************************************************************************
+echo -n "Waiting for Admin service to completely shut down..."
+KillSVC admin
+
+# MASTER ************************************************************************************************************************************
+echo -n "Waiting for Master service to completely shut down..."
+KillSVC master
+
+sleep 5; # give the services a few seconds to cleanup
+
+# *********************************************************************************************************************************************
+# call batm-manage backup
+# *********************************************************************************************************************************************
+/batm/batm-manage backup;
+
+# restart CAS
+LogIt "Restarting CAS"
+echo "Restarting CAS..."
+/batm/batm-manage start all
+
+EndTime=$SECONDS; Elapsed=$(( EndTime - StartTime ));
+
+LogIt "Automated backup script completed in "$EndTime" seconds."
+echo "Automated backup script completed in "$EndTime" seconds."
+
