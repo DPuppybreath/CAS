@@ -1,0 +1,86 @@
+#! /bin/bash
+# CASRestart elegantly shuts down CAS, and (drum roll, please): restarts it
+# written Feb 22, 2019-02-22 by Chuck Wernicke for General Bytes
+# v.1 experimental
+# this cronjob must be executed as root!
+
+# vars
+maxSvcWait=11; # the maximum wait time (in seconds) before the services are nuked without apology
+LogFile="/var/log/batm/master.log";
+BeginTime=$SECONDS
+
+LogIt() {
+	LogEntry=$( date -u +%F' '%T)".000 [CASRestart] INFO "$1
+	echo $LogEntry >> $LogFile;
+}
+
+KillSVC() {
+	SVC=0;
+	if [[ -e "/var/run/batm/$1" ]]; then 
+		SVC=$( cat /var/run/batm/$1 );
+	else
+		echo "done."
+	fi
+	Waits=$(( maxSvcWait / 5 ))
+	while [[ "$SVC" -gt 0 ]]; do # it must be a PID
+		echo -n "."
+		sleep 5
+		IsRunning=$( ps --pid "$SVC" --no-headers )
+		if [[ -z $IsRunning ]]; then
+			SVC=0
+			echo "done."
+		else
+			(( Waits-- ))
+			if [[ "$Waits" -eq 0 ]]; then
+				kill $SVC # the service has been given 5+ seconds to terminate by now...
+				LogIt $1" pid:"$SVC" destroyed after "$maxSvcWait" second timeout..."
+				SVC=0 # setting this to zero exits the while..do loop
+				echo "KILLED."
+			fi
+		fi
+	done
+
+}
+
+MUID=$( id -u )
+if [[ $MUID != 0 ]]; then
+	echo "This script must be run as sudo!"
+	exit 3
+fi
+
+# verify a log exists and set permissions
+if [[ ! -e $LogFile ]]; then
+	touch $LogFile;
+	chown batm:batm $LogFile
+fi
+
+# introduction & description
+echo "This script restarts CAS."
+echo "Logging to: "$LogFile
+LogIt "initiated: beginning shutdown.";
+
+# stop all CAS services
+echo "Shutting down CAS services:";
+
+# this generic method will most likely succeed; but we're going to "trust yet verify"
+/batm/batm-manage stop all;
+
+# ADMIN ************************************************************************************************************************************
+echo -n "Waiting for Admin service to completely shut down..."
+KillSVC admin
+
+# MASTER ************************************************************************************************************************************
+echo -n "Waiting for Master service to completely shut down..."
+KillSVC master
+
+sleep 5; # give the services a few seconds to cleanup
+
+# restart CAS
+LogIt "shutdown completed. Restarting all services."
+echo "Restarting CAS..."
+/batm/batm-manage start all
+
+EndTime=$SECONDS; Elapsed=$(( EndTime - StartTime ));
+
+LogIt "script completed in "$EndTime" seconds."
+echo "Automated restart script completed in "$EndTime" seconds."
