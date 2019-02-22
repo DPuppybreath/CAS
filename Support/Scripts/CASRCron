@@ -1,0 +1,43 @@
+#! /bin/bash
+# CASRestart cron installer by Chuck Wernicke for General Bytes Feb 2019
+# run from the gbfix tool to properly set vars, paths, and un/install
+# default restart time is 03:00 locale time (to avoid conflicts with other scheduled data maintenance)
+
+if [[ -z $SCRIPT_DIR || -z $DL_HEAD ]]; then
+	echo "This script MUST be run from GBFIX as instructed by GB Support."
+	exit;
+fi
+
+CASRestart=$SCRIPT_DIR"CASRestart"
+croncmd="0 3 * * * "$CASRestart
+DL_URL=$DL_HEAD"CASRestart"
+
+# archive old script, if present
+if [[ -e $CASRestart ]]; then
+	NewName=$CASRestart"."$( date +%s )
+	echo "CASRestart script already exists; renaming it to: "$NewName
+	mv $CASRestart $NewName
+fi
+
+# download CASRestart file, if available
+wget --quiet --tries=5 --output-document=$CASRestart $DL_URL
+if [ $? -ne 0 ]; then
+		echo "Download failed: error "$?" retrieving CASRestart!"
+		echo "Please check with the Support Team if you feel this shouldn't be happening."
+		exit 86
+fi
+
+chmod +x $CASRestart
+chown batm:batm $CASRestart
+
+# delete any previous CASRestart entries and install new entry
+( crontab -l -u root | grep -v -F "$CASRestart" ; echo "$croncmd" ) | crontab - -u root
+
+# exit elegantly
+if [[ $? -eq 0 ]]; then
+	read -n 1 -p "The script completed, apparently successfully. Note any error messages, and press any key to continue." YesNo
+else
+	read -n 1 -p "Cron job installation FAILED. Note any error messages, and press any key to continue." YesNo
+fi
+
+echo 
