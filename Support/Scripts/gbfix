@@ -11,7 +11,7 @@
 
 # init vars and const
 export SCRIPT_DIR="/batm/download/"
-DL_HEAD="https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/"
+export DL_HEAD="https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/"
 echo
 echo "Welcome to the GB scripted repair tool!"
 
