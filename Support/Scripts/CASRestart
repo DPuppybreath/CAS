@@ -32,7 +32,7 @@ KillSVC() {
 		else
 			(( Waits-- ))
 			if [[ "$Waits" -eq 0 ]]; then
-				kill $SVC # the service has been given 5+ seconds to terminate by now...
+				kill -9 $SVC # the service has been given 5+ seconds to terminate by now...
 				LogIt $1" pid:"$SVC" destroyed after "$maxSvcWait" second timeout..."
 				SVC=0 # setting this to zero exits the while..do loop
 				echo "KILLED."
