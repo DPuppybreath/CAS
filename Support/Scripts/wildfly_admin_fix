@@ -2,7 +2,8 @@
 
 echo "Stopping the admin service...."
 sudo /batm/batm-manage stop admin
-sleep 30
+sleep 10
+echo "Updating the config file..."
 STANDALONE_XML="/batm/app/admin/standalone/configuration/standalone.xml"
 sed -i 's/useCursorFetch=true<\/connection-url>/useCursorFetch=true\&amp;enabledTLSProtocols=TLSv1,TLSv1.1,TLSv1.2,TLSv1.3<\/connection-url>/' "$STANDALONE_XML"
 echo "Starting the admin service..."
