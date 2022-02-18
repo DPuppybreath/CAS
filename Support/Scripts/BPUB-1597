@@ -1,7 +1,6 @@
 #! /bin/bash
 # SQLfix for GB CAS, repairs one-off SQL issues
-# execute via:
-# wget -qO https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/BPUB-1597 | bash
+# execute via gbfix: https://github.com/DPuppybreath/CAS/blob/master/Support/Scripts/gbfix
 # written Feb 18, 2022 by Chuck Wernicke for General Bytes
 # Feb 18 2022: BPUB-1597 Identity limits error
 
