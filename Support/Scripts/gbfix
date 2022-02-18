@@ -73,6 +73,9 @@ if [ $? -ne 0 ]; then
 	exit 3
 fi
 echo "Script successfully downloaded, installed, and set as executable..."
+echo "Execute this command to run the script arbitrarily in the future:"
+echo "sudo $SCRIPT_CMD"
+echo
 
 # optionally run the script
 read -n 1 -p "Run the script now? (Y/n): " YesNo
