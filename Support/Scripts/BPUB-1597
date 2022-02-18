@@ -1,0 +1,146 @@
+#! /bin/bash
+# SQLfix for GB CAS, repairs one-off SQL issues
+# execute via:
+# wget -qO https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/BPUB-1597 | bash
+# written Feb 18, 2022 by Chuck Wernicke for General Bytes
+# Feb 18 2022: BPUB-1597 Identity limits error
+
+# vars
+LogFile="/var/log/batm/SQLfix.log";
+BATM_CONFIG_FILE="/batm/config/database"
+
+Fail() {
+	# this is used to cleanup after a fatal error
+	echo "Failure code: "$1
+	rm "$OPTION_FILE"
+	exit
+}
+
+LogIt() {
+	echo "$(date): $1" >> $LogFile;
+}
+
+# introduction & description
+echo "This script repairs specific CAS mySQL issues."
+echo "Activity logged in: $LogFile"
+
+MUID=$( id -u )
+if [[ $MUID != 0 ]]; then
+	echo "This script must be run as sudo!"
+	echo "Try: sudo $( basename -- "$0")"
+	exit 3
+fi
+
+############################################################################# open the CAS database creds
+BATMDB="$( grep 'db_name=' "$BATM_CONFIG_FILE" | cut -f2 -d'=' )"
+if [[ $? -ne 0 ]]; then
+	echo "The db_name could not be found in: $BATM_CONFIG_FILE"
+	exit 10
+elif [[ ${#BATMDB} -eq 0 ]]; then
+	echo "The config file entry for db_name is invalid."
+	exit 11
+fi
+
+BATMUSER="$( grep 'db_username=' "$BATM_CONFIG_FILE" | cut -f2 -d'=' )"
+if [[ $? -ne 0 ]]; then
+	echo "The db_username could not be found in: $BATM_CONFIG_FILE"
+	exit 12
+elif [[ ${#BATMUSER} -eq 0 ]]; then
+	echo "The config file entry for db_username is invalid."
+	exit 13
+fi
+
+BATMPW="$( grep 'db_password=' "$BATM_CONFIG_FILE" | cut -f2 -d'=' )"
+if [[ $? -ne 0 ]]; then
+	echo "The db_name could not be found in: $BATM_CONFIG_FILE"
+	exit 14
+elif [[ ${#BATMPW} -eq 0 ]]; then
+	echo "The config file entry for db_password is invalid."
+	exit 15
+fi
+
+echo "mySQL credentials successfully loaded from the database config file."
+
+############################################################################# prepare the options file
+DB_HOST='127.0.0.1'
+DB_PORT='3306'
+
+TMP_DIR='/batm/tmp'
+if [ ! -d "$TMP_DIR" ]; then
+	mkdir -m 700 "$TMP_DIR" && chown batm:batm "$TMP_DIR"
+fi
+
+OPTION_FILE=$( mktemp --tmpdir="$TMP_DIR")
+if [ $? -ne 0 ]; then
+	echo "ERROR: can't create temporary option file in: $TMP_DIR"
+	exit 20
+fi
+
+echo "Using mySQL option file: $OPTION_FILE"
+echo -e "[client]\nuser=$BATMUSER\npassword=$BATMPW\nhost=$DB_HOST\nport=$DB_PORT" > "$OPTION_FILE"
+if [ $? -ne 0 ]; then
+	echo "ERROR: can't write to: $OPTION_FILE"
+	exit 21
+fi
+
+############################################################################# Must use "Fail" to exit (this point forward)
+
+# verify a log exists and set permissions before attempting any UPDATE SQL statement
+# batm user needed for CAS maintenance scripts
+if [[ ! -e "$LogFile" ]]; then
+	touch "$LogFile" && chown batm:batm "$LogFile"
+	if [ $? -ne 0 ]; then
+		echo "ERROR: can't create log file: $LogFile"
+		Fail 30
+	fi
+fi
+
+############################################################################# BPUB-1597 specific
+
+read -p "Please type the Identity and press <ENTER>: " ENTRY
+if [[ -z "$ENTRY" ]]; then
+	echo "ERROR: an Identity must be provided."
+	Fail 20	
+elif [[ ${#ENTRY} -ne 16 ]]; then
+	# e.g. IC4U4UKBVYMVID8E
+	echo "ERROR: the Identity entered is invalid."
+	Fail 50
+fi
+
+# format the entry to uppercase
+IDENTITY="${ENTRY^^}"
+
+# identify the creating Org (anticipate mutliple orgs)
+EXECUTE="SELECT createdByOrganization_id FROM identity WHERE publicid='$IDENTITY';"
+ORGANIZATION=$( mysql --defaults-extra-file="$OPTION_FILE" -Ns --execute="$EXECUTE" "$BATMDB" )
+if [[ $? -ne 0 ]]; then
+	echo "MYSQL ERROR: Couldn't access Identity: $IDENTITY"
+	Fail 55
+fi
+
+# find the first active Terminal for the original Organization (active: deleted=NULL)
+EXECUTE="SELECT id, serialnumber FROM terminal WHERE owner_id='$ORGANIZATION' AND deleted IS NULL LIMIT 1;"
+NEWTERM=$( mysql --defaults-extra-file="$OPTION_FILE" -Ns --execute="$EXECUTE" "$BATMDB" )
+if [[ $? -ne 0 ]]; then
+	echo "MYSQL ERROR: Couldn't access Terminals for owner_id: $ORGANIZATION"
+	Fail 56
+fi
+NEWTERM_ID=$( echo $NEWTERM | cut -f1  -d' ')
+NEWTERM_NAME=$( echo $NEWTERM | cut -f2 -d' ')
+echo "Assigning to active Terminal $NEWTERM_ID named: $NEWTERM_NAME"
+
+# assign that Terminal_ID to the identity
+EXECUTE="UPDATE identity SET createdByTerminal_id='$NEWTERM_ID' WHERE publicid='$IDENTITY';"
+mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB"
+if [[ $? -ne 0 ]]; then
+	echo "MYSQL ERROR: Couldn't update Identity $IDENTITY"
+	Fail 57
+fi
+
+REPORT="Assigned $IDENTITY to $NEWTERM_NAME (ID: $NEWTERM_ID)"
+echo "$REPORT"
+LogIt "$REPORT"
+
+###################################################################################### CLEANUP
+
+rm "$OPTION_FILE"
