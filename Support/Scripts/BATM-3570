@@ -1,0 +1,189 @@
+#! /bin/bash
+# SQLfix for GB CAS, repairs one-off SQL issues
+# execute via gbfix: https://github.com/DPuppybreath/CAS/blob/master/Support/Scripts/gbfix
+# written June 23, 2022 by Chuck Wernicke for General Bytes
+# June 23, 2022: BATM-3570 Crypto Settings "add" failure
+
+# vars
+LogFile="/var/log/batm/SQLfix.log";
+BATM_CONFIG_FILE="/batm/config/database"
+
+Fail() {
+	# this is used to cleanup after a fatal error
+	echo "Failure code: "$1
+	rm "$OPTION_FILE"
+	exit
+}
+
+LogIt() {
+	echo "$(date): $1" >> $LogFile;
+}
+
+# introduction & description
+echo "This script repairs specific CAS mySQL issues."
+echo "Since the database structure may change without warning, this script MAY NOT WORK in the future."
+echo "This script has been tested to work with CAS version 20220429 only."
+echo
+echo "Activity logged in: $LogFile"
+echo
+
+MUID=$( id -u )
+if [[ $MUID != 0 ]]; then
+	echo "This script must be run as sudo!"
+	echo "Try: sudo $( basename -- "$0")"
+	exit 3
+fi
+
+############################################################################# open the CAS database creds
+BATMDB="$( grep 'db_name=' "$BATM_CONFIG_FILE" | cut -f2 -d'=' )"
+if [[ $? -ne 0 ]]; then
+	echo "The db_name could not be found in: $BATM_CONFIG_FILE"
+	exit 10
+elif [[ ${#BATMDB} -eq 0 ]]; then
+	echo "The config file entry for db_name is invalid."
+	exit 11
+fi
+
+BATMUSER="$( grep 'db_username=' "$BATM_CONFIG_FILE" | cut -f2 -d'=' )"
+if [[ $? -ne 0 ]]; then
+	echo "The db_username could not be found in: $BATM_CONFIG_FILE"
+	exit 12
+elif [[ ${#BATMUSER} -eq 0 ]]; then
+	echo "The config file entry for db_username is invalid."
+	exit 13
+fi
+
+BATMPW="$( grep 'db_password=' "$BATM_CONFIG_FILE" | cut -f2 -d'=' )"
+if [[ $? -ne 0 ]]; then
+	echo "The db_name could not be found in: $BATM_CONFIG_FILE"
+	exit 14
+elif [[ ${#BATMPW} -eq 0 ]]; then
+	echo "The config file entry for db_password is invalid."
+	exit 15
+fi
+
+echo "mySQL credentials successfully loaded from the database config file."
+
+############################################################################# prepare the options file
+DB_HOST='127.0.0.1'
+DB_PORT='3306'
+
+TMP_DIR='/batm/tmp'
+if [ ! -d "$TMP_DIR" ]; then
+	mkdir -m 700 "$TMP_DIR" && chown batm:batm "$TMP_DIR"
+fi
+
+OPTION_FILE=$( mktemp --tmpdir="$TMP_DIR")
+if [ $? -ne 0 ]; then
+	echo "ERROR: can't create temporary option file in: $TMP_DIR"
+	exit 20
+fi
+
+echo "Using mySQL option file: $OPTION_FILE"
+echo -e "[client]\nuser=$BATMUSER\npassword=$BATMPW\nhost=$DB_HOST\nport=$DB_PORT" > "$OPTION_FILE"
+if [ $? -ne 0 ]; then
+	echo "ERROR: can't write to: $OPTION_FILE"
+	exit 21
+fi
+
+############################################################################# Must use "Fail" to exit (this point forward)
+
+# verify a log exists and set permissions before attempting any UPDATE SQL statement
+# batm user needed for CAS maintenance scripts
+if [[ ! -e "$LogFile" ]]; then
+	touch "$LogFile" && chown batm:batm "$LogFile"
+	if [ $? -ne 0 ]; then
+		echo "ERROR: can't create log file: $LogFile"
+		Fail 30
+	fi
+fi
+
+############################################################################# BATM-3570 specific
+
+echo "You are about to erase the most recent Crypto Setting added."
+echo "This script is designed to rollback a corrupt Crypto Setting record."
+echo "NO WARRANTY - PERFORMANCE IS NOT GUARANTEED!"
+echo
+echo "BACKUP BEFORE PROCEEDING!"
+echo
+echo "If you proceed:"
+echo "  1) your CAS server will be STOPPED,"
+echo "  2) another CAS backup will be created,"
+echo "  3) the most recent Crypto Setting will be deleted."
+echo
+echo "After the script is finished, you'll have to start CAS again yourself."
+echo
+read -n 1 -p "Last chance! Run the script? (Y/n): " YesNo
+echo
+if [ "${YesNo,,}" != "y" ]; then
+	Fail 13
+fi
+
+sudo /batm/batm-manage stop all
+sleep 10
+
+sudo /batm/batm-manage backup && sleep 5
+if [[ $? -ne 0 ]]; then
+	echo "batm-manage ERROR: backup failed"
+	Fail 41
+fi
+
+# get the latest Crypto Setting created
+EXECUTE="SELECT id, cryptoconfiguration_id FROM cryptosettings ORDER BY id DESC LIMIT 1;"
+cryptosettings=$( mysql --defaults-extra-file="$OPTION_FILE" -Ns --execute="$EXECUTE" "$BATMDB" )
+if [[ $? -ne 0 ]]; then
+	echo "MYSQL ERROR: Couldn't acquire cryptoconfiguration_id"
+	Fail 50
+fi
+cryptosetting_id=$( echo $cryptosettings | cut -f1  -d' ')
+cryptoconfiguration_id=$( echo $cryptosettings | cut -f2 -d' ')
+
+# in this bug, we've seen that while records (in other tables) are created - they don't link back properly
+# so we'll orphan them rather than risk possibly deleting valid records in those tables
+# cryptosettings_id is invalid in this bug
+EXECUTE="SELECT id, outputqueue_id FROM tcryptoconfiguration ORDER BY id DESC LIMIT 1;"
+tcryptoconfiguration=$( mysql --defaults-extra-file="$OPTION_FILE" -Ns --execute="$EXECUTE" "$BATMDB" )
+if [[ $? -ne 0 ]]; then
+	echo "MYSQL ERROR: Couldn't access tcryptoconfiguration"
+	Fail 51
+fi
+id=$( echo $tcryptoconfiguration | cut -f1  -d' ')
+outputqueue_id=$( echo $tcryptoconfiguration | cut -f2 -d' ')
+
+if [[ "$outputqueue_id" != "NULL" ]]; then # this has been used before; it was setup in an output queue
+	echo "MYSQL ERROR: outputqueue_id is not NULL"
+	Fail 52
+fi
+
+if [[ "$cryptoconfiguration_id" != "$id" ]]; then # the most recent record may not be the one creating the fault
+	echo "MYSQL ERROR: cryptoconfiguration_id mismatch"
+	Fail 53
+fi
+
+# delete the records that we ARE certain were created successfully (that we can confirm)
+EXECUTE="SET FOREIGN_KEY_CHECKS = 0; \
+DELETE FROM tcryptoconfiguration_limit_buy_fee WHERE tcryptoconfiguration_id = $cryptoconfiguration_id; \
+DELETE FROM tcryptoconfiguration_limit_mcpt WHERE tcryptoconfiguration_id = $cryptoconfiguration_id; \
+DELETE FROM tcryptoconfiguration_limit_sell_fee WHERE tcryptoconfiguration_id = $cryptoconfiguration_id; \
+DELETE FROM terminalconfiguration_crypto_configuration WHERE cc_id = $cryptoconfiguration_id; \
+DELETE FROM tcryptoconfiguration WHERE id = $cryptoconfiguration_id; \
+DELETE FROM cryptosettings WHERE id = $cryptosetting_id;"
+
+REPORT=$(mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB")
+if [[ $? -eq 0 ]]; then
+	REPORT="Crypto Setting records successfully deleted."
+else
+	REPORT="MYSQL ERROR: records failed to delete; $REPORT"
+	echo "$REPORT"
+	LogIt "$REPORT"
+	Fail 54
+fi
+
+echo "$REPORT"
+echo
+echo "Remember to start CAS again!"
+LogIt "$REPORT"
+
+###################################################################################### CLEANUP
+
+rm "$OPTION_FILE"
