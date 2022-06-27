@@ -3,6 +3,7 @@
 # execute via gbfix: https://github.com/DPuppybreath/CAS/blob/master/Support/Scripts/gbfix
 # written June 23, 2022 by Chuck Wernicke for General Bytes
 # June 23, 2022: BATM-3570 Crypto Settings "add" failure
+# Jun 27, 2022 modified return codes
 
 # vars
 LogFile="/var/log/batm/SQLfix.log";
@@ -12,7 +13,7 @@ Fail() {
 	# this is used to cleanup after a fatal error
 	echo "Failure code: "$1
 	rm "$OPTION_FILE"
-	exit
+	exit $1
 }
 
 LogIt() {
@@ -50,16 +51,16 @@ if [[ $? -ne 0 ]]; then
 	exit 12
 elif [[ ${#BATMUSER} -eq 0 ]]; then
 	echo "The config file entry for db_username is invalid."
-	exit 13
+	exit 14
 fi
 
 BATMPW="$( grep 'db_password=' "$BATM_CONFIG_FILE" | cut -f2 -d'=' )"
 if [[ $? -ne 0 ]]; then
 	echo "The db_name could not be found in: $BATM_CONFIG_FILE"
-	exit 14
+	exit 15
 elif [[ ${#BATMPW} -eq 0 ]]; then
 	echo "The config file entry for db_password is invalid."
-	exit 15
+	exit 16
 fi
 
 echo "mySQL credentials successfully loaded from the database config file."
