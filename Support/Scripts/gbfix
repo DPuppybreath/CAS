@@ -7,7 +7,7 @@
 # execution:
 # wget https://raw.githubusercontent.com/DPuppybreath/CAS/master/Support/Scripts/gbfix
 # chmod +x gbfix
-# ./gbfix
+# sudo ./gbfix
 
 # init vars and const
 export SCRIPT_DIR="/batm/download/"
@@ -18,7 +18,7 @@ echo "Welcome to the GB scripted repair tool!"
 MUID=$( id -u )
 if [[ $MUID != 0 ]]; then
 	echo "This script needs to be run as sudo:"
-	echo "sudo gbfix"
+	echo "sudo ./gbfix"
 	exit 3
 fi
 
