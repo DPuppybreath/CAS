@@ -120,9 +120,7 @@ if [ "${YesNo,,}" != "y" ]; then
 	Fail 13
 fi
 
-sudo /batm/batm-manage stop all
-sleep 10
-
+sudo /batm/batm-manage stop all && sleep 10
 sudo /batm/batm-manage backup && sleep 5
 if [[ $? -ne 0 ]]; then
 	echo "batm-manage ERROR: backup failed"
@@ -151,9 +149,22 @@ fi
 id=$( echo $tcryptoconfiguration | cut -f1  -d' ')
 outputqueue_id=$( echo $tcryptoconfiguration | cut -f2 -d' ')
 
-if [[ "$outputqueue_id" != "NULL" ]]; then # this has been used before; it was setup in an output queue
-	echo "MYSQL ERROR: outputqueue_id is not NULL"
-	Fail 52
+if [[ "$outputqueue_id" = "NULL" ]]; then # maybe this has been used before; it points to a possible output queue
+	echo "$BATMDB outputqueue_id is NULL (expected)."
+else
+	EXECUTE="SELECT * FROM outputqueue WHERE id = $outputqueue_id;"
+	Target=$( mysql --defaults-extra-file="$OPTION_FILE" -Ns --execute="$EXECUTE" "$BATMDB" )
+	if [[ $? -ne 0 ]]; then # bail: unexpected fail
+		echo "MYSQL ERROR: Couldn't access outputqueue table"
+		Fail 55
+	else
+		if [[ -z "$Target" ]]; then
+			echo "$BATMDB outputqueue_id is invalid (proceeding)."
+		else # bail: unhandled fail
+			echo "MYSQL ERROR: outputqueue_id is valid, cannot proceed."
+			Fail 52
+		fi
+	fi
 fi
 
 if [[ "$cryptoconfiguration_id" != "$id" ]]; then # the most recent record may not be the one creating the fault
