@@ -1,0 +1,38 @@
+#! /bin/bash
+
+if [[ $# -ne 2 ]]; then
+	echo "Usage: mailovpn EMAIL FILENAME"
+	exit 1
+fi
+
+TO=$1
+FILE=$2
+if [[ ! -f $FILE ]]; then
+	echo "File not found: $2"
+	exit 1
+fi
+
+LICENSE_NUMBER=`cat /batm/config/license_number`
+echo "Using License: $LICENSE_NUMBER"
+SUBJECT="OVPN configuration file"
+BODY="The attachment is your client access configuration file for OpenVPN.
+
+To use this file:
+1) Install the appropriate OpenVPN client onto your system.
+2) Decompress the attachment (ZIP file).
+3) Import the decompressed file using the OpenVPN client.
+4) A predetermined username & password is required to connect to the CAS VPN.
+	a) If you don't already know them, please ask your administrator.
+	b) DO NOT send (or receive) the password via email!
+5) Delete this email after you've successfully connected to the CAS VPN."
+
+CLASSPATH=$(echo "/batm/app/master/lib"/*.jar | tr ' ' ':')
+PARAMS="-Dpassword=$LICENSE_NUMBER"
+
+java $PARAMS -cp "$CLASSPATH" -Dbatm.home=/batm com.generalbytes.batm.server.cmd.Mail "$TO" "$SUBJECT" "$BODY" $FILE
+
+if [[ $? -eq 0 ]]; then
+	echo "File successfully sent!"
+else
+	echo "Email failed to send, error:$?"
+fi
