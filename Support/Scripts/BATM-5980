@@ -136,20 +136,22 @@ echo
 
 # change the last ping times
 EXECUTE="UPDATE terminalstatus ts JOIN terminal t ON ts.id = t.status_id SET ts.lastpingat = '2024-03-11T00:00:00', ts.lastinitat = '2024-03-11T00:00:00', ts.connectedat = '2024-03-11T00:00:00' WHERE t.serialnumber = '$BTNUM';"
-REPORT=$(mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB") && echo "$REPORT" && LogIt "$REPORT"
+LogIt "$EXECUTE"
+mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB"
 if [[ $? -eq 0 ]]; then
-	REPORT="Terminal record successfully updated."
+	LogIt "Terminal record 1 successfully updated."
 else
-	REPORT="MYSQL ERROR: record failed to update; $REPORT"
+	LogIt "MYSQL ERROR: record 1 failed to update!"
 	Fail 51
 fi
 
 EXECUTE="UPDATE terminaldisplay td JOIN terminal t ON td.id = t.display_id set td.updatedat = '2023-03-11T00:00:00' WHERE t.serialnumber = '$BTNUM';"
-REPORT=$(mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB") && echo "$REPORT" && LogIt "$REPORT"
+LogIt "$EXECUTE"
+mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB"
 if [[ $? -eq 0 ]]; then
-	REPORT="Terminal record successfully updated."
+	LogIt "Terminal record 2 successfully updated."
 else
-	REPORT="MYSQL ERROR: record failed to update; $REPORT"
+	LogIt "MYSQL ERROR: record 2 failed to update!"
 	Fail 54
 fi
 
