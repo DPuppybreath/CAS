@@ -2,6 +2,7 @@
 # SQLfix for GB CAS, repairs one-off SQL issues
 # execute via gbfix: https://github.com/DPuppybreath/CAS/blob/master/Support/Scripts/gbfix
 # written March 11, 2024 by Chuck Wernicke for General Bytes
+# updated April 2, 2024 to eliminate Terminal requirement
 
 # vars
 LogFile="/var/log/batm/SQLfix.log";
@@ -99,8 +100,7 @@ fi
 
 ############################################################################# BATM-3570 specific
 
-echo "You are about to erase the most recent Crypto Setting added."
-echo "This script is designed to fix a database DST time problem."
+echo "This script is designed to fix a mySQL database Daylight Savings Time issue."
 echo "NO WARRANTY - PERFORMANCE IS NOT GUARANTEED!"
 echo
 echo "BACKUP BEFORE PROCEEDING!"
@@ -108,7 +108,7 @@ echo
 echo "If you proceed:"
 echo "  1) your CAS server will be STOPPED,"
 echo "  2) another CAS backup will be created,"
-echo "  3) the most recent Crypto Setting will be deleted."
+echo "  3) the DST error in your mySQL database will be corrected.
 echo
 echo "After the script is finished, you'll have to start CAS again yourself."
 echo
@@ -130,12 +130,8 @@ if [ "${YesNo,,}" == "y" ]; then
     fi
 fi
 
-# get the Terminal serial number
-read -p "Please enter the BATM serial number to fix (e.g. BT123456): " BTNUM
-echo
-
-# change the last ping times
-EXECUTE="UPDATE terminalstatus ts JOIN terminal t ON ts.id = t.status_id SET ts.lastpingat = '2024-03-11T00:00:00', ts.lastinitat = '2024-03-11T00:00:00', ts.connectedat = '2024-03-11T00:00:00' WHERE t.serialnumber = '$BTNUM';"
+# change the relavent time
+EXECUTE="UPDATE terminalstatus set lastinitat = '2024-04-01T00:00:00' where lastinitat between '2024-03-31T00:02:00' and '2024-03-31T03:00:00';"
 LogIt "$EXECUTE"
 mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB"
 if [[ $? -eq 0 ]]; then
@@ -143,16 +139,6 @@ if [[ $? -eq 0 ]]; then
 else
 	LogIt "MYSQL ERROR: record 1 failed to update!"
 	Fail 51
-fi
-
-EXECUTE="UPDATE terminaldisplay td JOIN terminal t ON td.id = t.display_id set td.updatedat = '2023-03-11T00:00:00' WHERE t.serialnumber = '$BTNUM';"
-LogIt "$EXECUTE"
-mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB"
-if [[ $? -eq 0 ]]; then
-	LogIt "Terminal record 2 successfully updated."
-else
-	LogIt "MYSQL ERROR: record 2 failed to update!"
-	Fail 54
 fi
 
 echo
