@@ -108,7 +108,7 @@ echo
 echo "If you proceed:"
 echo "  1) your CAS server will be STOPPED,"
 echo "  2) another CAS backup will be created,"
-echo "  3) the DST error in your mySQL database will be corrected.
+echo "  3) the DST error in your mySQL database will be corrected."
 echo
 echo "After the script is finished, you'll have to start CAS again yourself."
 echo
@@ -131,7 +131,7 @@ if [ "${YesNo,,}" == "y" ]; then
 fi
 
 # change the relavent time
-EXECUTE="UPDATE terminalstatus SET lastinitat = '2024-04-01T00:00:00' WHERE lastinitat BETWEEN '2024-03-31T00:02:00' AND '2024-03-31T03:00:00' ; "
+EXECUTE="UPDATE terminalstatus SET lastinitat = '2024-04-01T00:00:00' WHERE lastinitat BETWEEN '2024-03-31T00:02:00' AND '2024-03-31T03:00:00';"
 
 LogIt "$EXECUTE"
 mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB"
