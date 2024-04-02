@@ -131,7 +131,7 @@ if [ "${YesNo,,}" == "y" ]; then
 fi
 
 # change the relavent time
-EXECUTE="UPDATE terminalstatus set lastinitat = '2024-04-01T00:00:00' where lastinitat between '2024-03-31T00:02:00' and '2024-03-31T03:00:00';"
+EXECUTE="UPDATE terminalstatus set lastinitat = '2024-04-01T00:00:00' where lastinitat between '2024-03-31T00:02:00' and '2024-03-31T03:00:00'; "
 
 LogIt "$EXECUTE"
 mysql --defaults-extra-file="$OPTION_FILE" --execute="$EXECUTE" "$BATMDB"
